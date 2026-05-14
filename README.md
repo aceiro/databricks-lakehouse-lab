@@ -4,13 +4,22 @@ Projeto de estudos para integração com **Databricks**, **AWS** e **GitHub**.
 
 O objetivo é construir um mini Lakehouse moderno utilizando um fluxo profissional com:
 
+- Datamesh e DDD como guia de organização
 - Workspace, Catalog, Schema e Volumes no Databricks
 - Dataset do Kaggle
 - Processamento com Apache Spark
 - Armazenamento em Delta Lake
 - Versionamento com GitHub
+- AWS para armazenamento e computação
 
 ---
+
+## Arquitetura
+
+![Medallion Architecture in the Lakehouse](assets/medallion_architecture.png)
+
+> Arquitetura Medallion (Bronze → Silver → Gold) aplicada ao Lakehouse com alinhamento DDD.
+> Catalog `architect_company` representa o Domínio; Schema `churn_prediction` o Bounded Context.
 
 ## Estrutura Databricks
 
@@ -42,6 +51,7 @@ databricks-lakehouse-lab/
 │   └── notebook/
 │       ├── 01.raw_churn_prediction_notebook.ipynb
 │       └── 02.trusted_layer_churn_prediction_notebook.ipynb
+│       └── 03.curated_layer_churn_prediction_notebook.ipynb
 ```
 
 ---
@@ -61,6 +71,8 @@ architect_company
 ## Dataset
 
 [Customer Churn Dataset — Kaggle](https://www.kaggle.com/datasets/muhammadshahidazeem/customer-churn-dataset)
+
+O dataset contém informações de clientes de uma empresa de telecomunicações, incluindo dados demográficos, serviços contratados e se o cliente cancelou ou não o serviço (churn).
 
 Arquivo esperado após download:
 
@@ -176,14 +188,14 @@ trusted_df.write.format("delta") \
 
 ---
 
-### Passo 8 — Notebook: `03_curated_layer.ipynb` *(a criar)*
+### Passo 8 — Notebook: `03.curated_layer_churn_prediction_notebook.ipynb` *(a criar)*
 
 KPIs, features e agregações analíticas:
 
 ```python
 from pyspark.sql.functions import avg
 
-curated_df = trusted_df.groupBy("Geography") \
+curated_df = trusted_df.groupBy("Age") \
     .agg(avg("Churn").alias("avg_churn"))
 
 curated_df.write.format("delta") \
@@ -225,7 +237,7 @@ No DDD, o negócio é organizado em **domínios** e **subdomínios**. Aqui, essa
 
 ### Bounded Context
 
-Cada **Schema** representa um Bounded Context isolado. Dados de `churn_prediction` não se misturam com dados de outros domínios. O Catalog é a fronteira explícita de linguagem e responsabilidade.
+Cada **Schema** representa um `Bounded Context` isolado. Dados de `churn_prediction` não se misturam com dados de outros domínios. O Catalog é a fronteira explícita de linguagem e responsabilidade.
 
 ```text
 architect_company          ← Domínio
@@ -245,7 +257,7 @@ A pipeline Bronze → Silver → Gold do Lakehouse mapeia diretamente as camadas
 
 | Camada Lakehouse | DDD                   | Responsabilidade                        |
 | ---------------- | --------------------- | --------------------------------------- |
-| RAW (Bronze)     | Infrastructure Layer  | Ingestão fiel da fonte externa          |
+| Raw (Bronze)     | Infrastructure Layer  | Ingestão fiel da fonte externa          |
 | Trusted (Silver) | Domain Layer          | Regras de limpeza e consistência        |
 | Curated (Gold)   | Application Layer     | KPIs, features e entrega ao consumidor  |
 
@@ -259,7 +271,7 @@ O repositório Git não armazena apenas código — ele versiona o **modelo do d
 | Branch por feature        | Evolução incremental do domínio        |
 | Notebook `01.raw_churn_prediction_notebook`          | Anti-Corruption Layer (ACL)            |
 | Notebook `02.trusted_layer_churn_prediction_notebook` | Domain Service (transformação)         |
-| Notebook `03_curated_layer` *(a criar)*               | Application Service (entrega)          |
+| Notebook `03.curated_layer_churn_prediction_notebook`  | Application Service (entrega)          |
 | Pull Request              | Revisão de mudança no modelo           |
 | Commit message            | Registro de decisões de domínio (ADR)  |
 
@@ -274,15 +286,16 @@ GitHub (versionamento do modelo)
                     │
                     └── Schema: churn_prediction  (Bounded Context)
                             │
-                            ├── Volume raw       → 01.raw_churn_prediction_notebook.ipynb          (ACL)
-                            ├── Volume trusted   → 02.trusted_layer_churn_prediction_notebook.ipynb  (Domain Service)
-                            └── Volume curated   → 03_curated_layer.ipynb *(a criar)*               (Application Service)
+                            ├── Volume raw       → 01.raw_churn_prediction_notebook.ipynb (ACL)
+                            ├── Volume trusted   → 02.trusted_layer_churn_prediction_notebook.ipynb (Domain Service)
+                            └── Volume curated   → 03.curated_layer_churn_prediction_notebook.ipynb (Application Service)
 ```
 
 ---
 
 ## Referências
 
+- [Databricks Free Edition](https://www.databricks.com/learn/free-edition)
 - [Databricks Documentation](https://docs.databricks.com/)
 - [Delta Lake](https://delta.io/)
 - [Apache Spark](https://spark.apache.org/)
